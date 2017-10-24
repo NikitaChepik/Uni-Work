@@ -1,0 +1,336 @@
+template <typename N, typename E>
+bool Graph<N,E>::addNode(const N& item) {
+  if(isNode(item)){
+    return false;
+  }
+  Node newNode{item};
+  graph_.push_back(newNode);
+  return true;
+} 
+
+// Prints all the nodes contained in the graph
+template <typename N, typename E>
+void Graph<N,E>::printNodes() const {
+  std::vector<Node> tempNodes = graph_;
+  // Sort by edge count if same sort by node size.
+  std::sort(tempNodes.begin(), tempNodes.end(), 
+      [] (Node a, Node b){
+        if (a.countEdges() == b.countEdges()){
+          return a.getNode() < b.getNode();
+        } return a.countEdges() < b.countEdges();
+      });
+
+  
+  for (const auto& i : tempNodes){
+    std::cout<< i.getNode() << "\n";
+  }
+} 
+
+template <typename N, typename E>
+bool Graph<N,E>::isNode(const N& val) const {
+  for(Node i : graph_){
+    if(i.getNode() == val){
+      return true;
+    }
+  }
+  return false;
+}
+// Checks both nodes exist in the graph if they do adds a new edge with a weight w between
+// the 2 given nodes.
+template <typename N, typename E>
+bool Graph<N,E>::addEdge(const N& src, const N& dest, const E& w) {
+  bool foundSrc = false;
+  bool foundDest = false;
+  for(auto i : graph_){
+    if(i.getNode() == src){
+      foundSrc = true;
+    }
+    if(i.getNode() == dest){
+      foundDest = true;
+    }
+    if(i.getNode() == src && i.checkEdges(dest,w) ){
+      return false;
+    }
+  }
+ 
+  if(foundSrc == false || foundDest == false){
+    throw std::exception();
+  }
+
+  auto srcNode = std::find_if(graph_.begin(), graph_.end(), [&src] (const Node& temp) {
+    return src == temp.getNode();
+  });
+  auto destNode = std::find_if(graph_.begin(), graph_.end(), [&dest] (const Node& temp) {
+    return dest == temp.getNode();
+  });
+  srcNode->addEdge(*destNode,w);
+  return true;
+}
+// Checks if any edges with a destination and certain weight exist.
+template <typename N, typename E>
+bool Graph<N,E>::Node::checkEdges(const N& dest, const E& w){
+  for(Edge j : edge_){
+    if(j.getToEdge() == dest && j.getWeight() == w){
+      return true;
+    }
+  }
+  return false;
+}
+// Checks if any edges with a destination exist
+template <typename N, typename E>
+bool Graph<N,E>::Node::checkEdges(const N& dest){
+  for(Edge j : edge_){
+    if(j.getToEdge() == dest){
+      return true;
+    }
+  }
+  return false;
+}
+
+template <typename N, typename E>
+void Graph<N,E>::Node::addEdge(const Node& dest, const E& w) {
+  Edge newEdge{dest,w};
+  edge_.push_back(newEdge);
+}
+
+template <typename N, typename E>
+void Graph<N,E>::printEdges(const N& src) {
+  if(!isNode(src)){
+    throw std::exception();
+  }
+  std::vector<Node> tempNodes = graph_;
+  std::cout << "Edges attached to Node " << src << "\n";
+  auto srcNode = std::find_if(tempNodes.begin(), tempNodes.end(), [&src] (const Node& tempNode) {
+    return src == tempNode.getNode();
+  });
+  srcNode->printEdges();
+}
+
+template <typename N, typename E>
+void Graph<N,E>::Node::printEdges() {
+  std::vector<Edge> tempEdge = edge_;
+  //Sorts the temp array weight but if weight is the same sorts by edge.
+  std::sort(tempEdge.begin(), tempEdge.end(),[] (Edge a, Edge b) {
+        if (a.getWeight() == b.getWeight()) return a.getToEdge() < b.getToEdge();
+        return a.getWeight() < b.getWeight();
+  });
+  //Calculates total null edges 
+  int totalNull = 0;
+  for(const auto& i : tempEdge){
+    if(i.getToEdgePtr() == NULL){
+      totalNull++;
+    }
+  }
+  // Takes the size of the array and subtracts all the null edges.
+  if(edge_.size() - totalNull == 0){
+    std::cout << "(null)\n";
+  } else {
+    for (auto i : tempEdge) {
+      i.printEdgeInfo();
+    }
+  }
+}
+
+template <typename N, typename E>
+void Graph<N,E>::Node::Edge::printEdgeInfo() {
+  auto p = edgeLink_.lock();
+  if(p != NULL){
+    std::cout << *p << " " << *weight_<<"\n";
+  }
+}
+
+//Checks if the nodes exist and then checks if they are connected.
+template <typename N, typename E>
+bool Graph<N,E>::isConnected(const N& src, const N& dst) const{
+  if(!isNode(src) || !isNode(dst)){
+    throw std::exception();
+    return false;
+  }
+
+  for(const auto& i : graph_){
+    if(i.getNode() == src){
+      for(const auto& j : i.getEdgeVector()){
+        if(j.getToEdge() == dst){
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+template <typename N, typename E>
+bool Graph<N,E>::replace(const N& oldData, const N& newData){
+  if(!isNode(oldData)){
+    throw std::exception();
+  }
+  if(isNode(newData)){
+    return false;
+  }
+  for(auto i : graph_){
+    if(i.getNode() == oldData){
+      *i.getNodePtr() = newData;
+      return true;
+    }
+  }
+  return false;
+}
+template <typename N, typename E>
+void Graph<N,E>::deleteEdge(const N& src, const N& dst, const E& w) noexcept{
+  if(!isNode(src) || !isNode(dst)){
+    return;
+  }
+  auto srcNode = std::find_if(graph_.begin(), graph_.end(), [&src] (const Node& temp) {
+    return src == temp.getNode();
+  });
+  // find to
+  if(srcNode->checkEdges(dst,w)){
+    srcNode->deleteEdge(dst,w);
+  }
+
+}
+
+template <typename N, typename E>
+void Graph<N,E>::Node::deleteEdge(const N& dst, const E& w){
+  auto delEdge = std::find_if(edge_.begin(),edge_.end(),[&dst,&w](const Edge& temp){
+    if(temp.getToEdge() == dst && w == temp.getWeight()) return true; return false;
+  });
+  if(delEdge != edge_.end()){
+    edge_.erase(delEdge);
+  }
+}
+
+//Checks if node exists then deletes.
+template <typename N, typename E>
+void Graph<N,E>::deleteNode(const N& del) noexcept{
+  if(!isNode(del)){
+    return;
+  }
+  auto delNode = find_if(graph_.begin(),graph_.end(),[&del] (const Node& temp){
+    return del == temp.getNode();
+  });
+
+  graph_.erase(delNode);
+}
+
+
+template <typename N, typename E>
+Graph<N,E>::Graph(const Graph &g){
+  for(auto node:g.graph_){
+    addNode(node.getNode());
+  }
+  for(auto node:g.graph_){
+    for(auto edge:node.getEdgeVector()){
+      if(edge.getToEdgePtr() != nullptr){
+        addEdge(node.getNode(),edge.getToEdge(),edge.getWeight());
+      }
+    }
+  }
+}
+
+// Move constructor.
+template <typename N, typename E> 
+Graph<N,E>::Graph(Graph &&g){
+  graph_ = std::move(g.graph_);
+}
+
+// Copy operator 
+template <typename N, typename E> 
+Graph<N,E>& Graph<N,E>::operator=(const Graph &g){
+  clear();
+  if (this != &g) {
+    for (auto node: g.graph_){
+      addNode(node.getNode());
+    } 
+    
+    for (auto node: g.graph_){
+      for (auto edge: node.getEdgeVector()){
+        if (edge.getToEdgePtr() != nullptr){
+          addEdge(node.getNode(), edge.getToEdge(), edge.getWeight());
+        }
+      }
+    }
+  }
+return *this;
+}
+
+//Move operator 
+template <typename N, typename E> 
+Graph<N,E>& Graph<N,E>::operator=(Graph &&g) {
+  clear();
+  graph_ = std::move(g.graph_);
+  return *this;
+}
+
+
+template <typename N, typename E> 
+void Graph<N,E>::clear() noexcept{
+  graph_.clear();
+}
+
+//Counts the total edges of a given node.
+template <typename N, typename E> 
+int Graph<N, E>::Node::countEdges() const { 
+  std::vector<Edge> tempEdges = edge_;
+  tempEdges.erase(std::remove_if(tempEdges.begin(), tempEdges.end(),
+                [] (const Edge& e) {
+                  return e.getToEdgePtr() == nullptr;
+                }), tempEdges.end());
+  return tempEdges.size(); 
+}
+
+//Takes the edges in oldData and moves them to newData and then deletes
+// the nodes of oldData.
+template <typename N, typename E> 
+void Graph<N,E>::mergeReplace(const N& oldData, const N& newData) { 
+  if(!isNode(oldData) || !isNode(oldData)){
+      throw std::exception();
+  }
+  // find the two nodes
+  auto oldNode = std::find_if(graph_.begin(), graph_.end(),
+    [&oldData] (const Node& temp){
+      return oldData == temp.getNode();
+    });
+
+  auto newNode = std::find_if(graph_.begin(), graph_.end(),
+    [&newData] (const Node& temp)
+    {
+      return newData == temp.getNode();
+    });
+
+  newNode->copyEdges(*oldNode,graph_);
+
+  for(auto i : graph_){
+    if(i.getNode() != oldData){
+      for(auto j : i.getEdgeVector()){
+        if(j.getToEdge() == oldData){
+          // Generates a copy of the node but redirecting it to the merged node.
+          addEdge(i.getNode(),newNode->getNode(),j.getWeight());
+          // Removes the old node so that only the copy remains
+          deleteEdge(i.getNode(),oldNode->getNode(),j.getWeight());
+        }
+      }
+    }
+  }
+  deleteNode(oldData);
+}
+
+// Takes all the edges from a node oldData and copies them over to another node.
+template <typename N, typename E> 
+void Graph<N,E>::Node::copyEdges(const Node& oldData, const std::vector<Node> graph) {
+  std::vector<Edge> tempEdges = oldData.edge_;
+  for (auto tempNode : tempEdges) {
+    if (tempNode.getToEdgePtr() != nullptr) {
+        // Check if the node isnt in the current edgle list.
+        if (!checkEdges(tempNode.getToEdge(), tempNode.getWeight())){
+           auto nodeToConnect = std::find_if(graph.begin(), graph.end(),
+                  [&tempNode] (const Node& temp) {
+                    return tempNode.getToEdge() == temp.getNode();
+                  });
+          addEdge(*nodeToConnect, tempNode.getWeight());
+        }
+      
+    }
+  }
+}
+
+
